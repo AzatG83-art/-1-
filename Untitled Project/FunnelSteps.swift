@@ -613,9 +613,6 @@ struct LastEventStep: View {
                         Color(.secondarySystemGroupedBackground),
                         in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                     )
-                    if !DebtCase.isOnOrAfter(debt.lastEventDate, than: debt.transferDate) {
-                        InfoBanner(tone: .warning, text: "Эта дата раньше передачи денег. Поправьте её или дату передачи.")
-                    }
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: debt.hadLastEvent)
@@ -623,7 +620,7 @@ struct LastEventStep: View {
     }
 
     private var eventRange: ClosedRange<Date> {
-        let start = min(debt.transferDate, Date())
+        let start = Calendar.current.date(byAdding: .year, value: -10, to: Date()) ?? Date()
         return start...Date()
     }
 }
@@ -685,7 +682,7 @@ struct PartialStep: View {
     }
 
     private var eventRange: ClosedRange<Date> {
-        let start = min(debt.transferDate, Date())
+        let start = Calendar.current.date(byAdding: .year, value: -10, to: Date()) ?? Date()
         return start...Date()
     }
 

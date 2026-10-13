@@ -135,7 +135,7 @@ extension DebtCase {
         case .lastEvent:
             guard let hadLastEvent else { return false }
             if hadLastEvent {
-                return Self.isOnOrAfter(lastEventDate, than: transferDate) && Self.isNotAfterToday(lastEventDate)
+                return Self.isNotAfterToday(lastEventDate)
             }
             return true
         case .partial:
@@ -143,7 +143,7 @@ extension DebtCase {
             if !didPayPartial { return true }
             guard let partial = parsedPartial, let total = parsedAmount else { return false }
             guard partial > 0, partial < total else { return false }
-            return Self.isOnOrAfter(partialDate, than: transferDate) && Self.isNotAfterToday(partialDate)
+            return Self.isNotAfterToday(partialDate)
         case .actions:
             return !actions.isEmpty
         case .reply:
