@@ -82,11 +82,25 @@ nonisolated enum FunnelStep: Hashable, Sendable {
     static func following(_ step: FunnelStep, debt: DebtCase) -> FunnelStep? {
         if step == .summary { return .ready }
         let steps = sequence(for: debt)
-        guard let index = steps.firstIndex(of: step) else { return nil }
-        let next = steps.index(after: index)
-        guard next < steps.endIndex else { return nil }
-        return steps[next]
+        if let index = steps.firstIndex(of: step) {
+            let next = steps.index(after: index)
+            guard next < steps.endIndex else { return nil }
+            return steps[next]
+        }
+        // Шага нет в текущей последовательности (ответы поменялись после возврата назад):
+        // идём к первому шагу, который в полном порядке стоит после текущего.
+        guard let order = canonicalOrder.firstIndex(of: step) else { return nil }
+        return steps.first { candidate in
+            (canonicalOrder.firstIndex(of: candidate) ?? 0) > order
+        }
     }
+
+    static let canonicalOrder: [FunnelStep] = [
+        .debtorKind, .origin, .amount, .transfer, .cardDetails, .cashDetails,
+        .document, .documentTerms, .admission, .calls, .noEvidence,
+        .dates, .lastEvent, .partial, .actions, .reply,
+        .debtor, .creditor, .delivery, .summary, .ready
+    ]
 
     static func progress(for step: FunnelStep, debt: DebtCase) -> (current: Int, total: Int) {
         let steps = sequence(for: debt)
@@ -171,7 +185,7 @@ extension DebtCase {
         }
     }
 
-    private static func isNamed(_ text: String) -> Bool {
+    static func isNamed(_ text: String) -> Bool {
         let value = trimmed(text)
         return value.count >= 2 && hasLetter(value)
     }

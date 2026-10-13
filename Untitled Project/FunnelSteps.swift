@@ -764,29 +764,40 @@ struct ReplyStep: View {
 struct DebtorInfoStep: View {
     @Binding var debt: DebtCase
     let onContinue: () -> Void
+    @State private var showErrors = false
 
     var body: some View {
         StepScaffold(
             title: "Данные должника",
-            subtitle: "Город обязателен: без него претензию некуда отправить. Улицу добавьте, если знаете.",
+            subtitle: "Поля со звёздочкой (*) обязательны. Город нужен, чтобы было куда отправить претензию. Улицу добавьте, если знаете.",
             buttonTitle: "Далее",
-            isEnabled: debt.canContinue(.debtor),
-            action: onContinue
+            action: {
+                if debt.canContinue(.debtor) {
+                    onContinue()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) { showErrors = true }
+                }
+            }
         ) {
             VStack(spacing: 16) {
+                if showErrors, !debt.canContinue(.debtor) {
+                    InfoBanner(tone: .warning, text: "Заполните обязательные поля, отмеченные звёздочкой.")
+                }
                 LabeledField(
-                    title: debt.debtorKind?.nameTitle ?? "ФИО",
+                    title: (debt.debtorKind?.nameTitle ?? "ФИО") + " *",
                     placeholder: debt.debtorKind?.namePlaceholder ?? "ФИО",
                     text: $debt.debtorName,
                     contentType: .name,
-                    capitalization: .words
+                    capitalization: .words,
+                    error: showErrors && !DebtCase.isNamed(debt.debtorName) ? "Укажите имя или название" : nil
                 )
                 LabeledField(
-                    title: "Город",
+                    title: "Город *",
                     placeholder: "Казань",
                     text: $debt.debtorCity,
                     contentType: .addressCity,
-                    capitalization: .words
+                    capitalization: .words,
+                    error: showErrors && !DebtCase.isNamed(debt.debtorCity) ? "Укажите город" : nil
                 )
                 LabeledField(
                     title: "Улица и дом",
@@ -797,19 +808,21 @@ struct DebtorInfoStep: View {
                     axis: .vertical
                 )
                 LabeledField(
-                    title: "Телефон",
+                    title: "Телефон *",
                     placeholder: "+7 900 000-00-00",
                     text: $debt.debtorPhone,
                     keyboard: .phonePad,
                     contentType: .telephoneNumber,
                     capitalization: .never,
-                    error: phoneError(debt.debtorPhone)
+                    error: phoneError(debt.debtorPhone, showEmpty: showErrors)
                 )
                 LabeledField(
-                    title: "Мессенджер",
+                    title: "Мессенджер *",
                     placeholder: "Telegram @name или WhatsApp",
                     text: $debt.debtorMessenger,
-                    capitalization: .never
+                    capitalization: .never,
+                    error: showErrors && DebtCase.trimmed(debt.debtorMessenger).count < 2
+                        ? "Укажите мессенджер или ник, хотя бы 2 символа" : nil
                 )
             }
         }
@@ -819,34 +832,44 @@ struct DebtorInfoStep: View {
 struct CreditorInfoStep: View {
     @Binding var debt: DebtCase
     let onContinue: () -> Void
+    @State private var showErrors = false
 
     var body: some View {
         StepScaffold(
             title: "Ваши данные",
-            subtitle: "Так претензия будет от вашего имени, а деньги — на ваши реквизиты.",
+            subtitle: "Так претензия будет от вашего имени, а деньги — на ваши реквизиты. Поля со звёздочкой (*) обязательны.",
             buttonTitle: "Далее",
-            isEnabled: debt.canContinue(.creditor),
-            action: onContinue
+            action: {
+                if debt.canContinue(.creditor) {
+                    onContinue()
+                } else {
+                    withAnimation(.easeInOut(duration: 0.2)) { showErrors = true }
+                }
+            }
         ) {
             VStack(alignment: .leading, spacing: 16) {
+                if showErrors, !debt.canContinue(.creditor) {
+                    InfoBanner(tone: .warning, text: "Заполните обязательные поля, отмеченные звёздочкой.")
+                }
                 LabeledField(
-                    title: "ФИО",
+                    title: "ФИО *",
                     placeholder: "Петров Пётр Петрович",
                     text: $debt.creditorName,
                     contentType: .name,
-                    capitalization: .words
+                    capitalization: .words,
+                    error: showErrors && !DebtCase.isNamed(debt.creditorName) ? "Укажите ФИО" : nil
                 )
                 LabeledField(
-                    title: "Телефон",
+                    title: "Телефон *",
                     placeholder: "+7 900 000-00-00",
                     text: $debt.creditorPhone,
                     keyboard: .phonePad,
                     contentType: .telephoneNumber,
                     capitalization: .never,
-                    error: phoneError(debt.creditorPhone)
+                    error: phoneError(debt.creditorPhone, showEmpty: showErrors)
                 )
                 LabeledField(
-                    title: "Email",
+                    title: "Email *",
                     placeholder: "name@mail.ru",
                     text: $debt.creditorEmail,
                     keyboard: .emailAddress,
@@ -854,7 +877,7 @@ struct CreditorInfoStep: View {
                     capitalization: .never,
                     error: emailError
                 )
-                Text("Куда вернуть деньги")
+                Text("Куда вернуть деньги *")
                     .font(.subheadline.weight(.semibold))
                 HStack(spacing: 12) {
                     ForEach(PayoutKind.allCases) { kind in
@@ -867,9 +890,14 @@ struct CreditorInfoStep: View {
                         }
                     }
                 }
+                if showErrors, debt.payoutKind == nil {
+                    Text("Выберите: карта или счёт")
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
                 if debt.payoutKind == .card {
                     LabeledField(
-                        title: "Номер карты",
+                        title: "Номер карты *",
                         placeholder: "0000 0000 0000 0000",
                         text: $debt.cardNumber,
                         keyboard: .numberPad,
@@ -880,7 +908,7 @@ struct CreditorInfoStep: View {
                 }
                 if debt.payoutKind == .account {
                     LabeledField(
-                        title: "Расчётный счёт",
+                        title: "Расчётный счёт *",
                         placeholder: "20 цифр",
                         text: $debt.accountNumber,
                         keyboard: .numberPad,
@@ -888,32 +916,36 @@ struct CreditorInfoStep: View {
                         error: accountError
                     )
                     LabeledField(
-                        title: "Банк",
+                        title: "Банк *",
                         placeholder: "Название банка",
                         text: $debt.bankName,
-                        capitalization: .words
+                        capitalization: .words,
+                        error: showErrors && !DebtCase.isNamed(debt.bankName) ? "Укажите банк" : nil
                     )
                 }
             }
-            .animation(.easeInOut(duration: 0.25), value: debt.payoutKind)
         }
     }
 
     private var emailError: String? {
         let value = DebtCase.trimmed(debt.creditorEmail)
-        guard !value.isEmpty, !DebtCase.isValidEmail(value) else { return nil }
-        return "Похоже, в адресе почты ошибка"
+        if value.isEmpty {
+            return showErrors ? "Укажите почту — на неё придёт претензия" : nil
+        }
+        return DebtCase.isValidEmail(value) ? nil : "Похоже, в адресе почты ошибка"
     }
 
     private var cardError: String? {
         let count = DebtCase.digitCount(debt.cardNumber)
-        guard count > 0, !(16...19).contains(count) else { return nil }
+        if (16...19).contains(count) { return nil }
+        guard count > 0 || showErrors else { return nil }
         return "В номере карты обычно 16 цифр"
     }
 
     private var accountError: String? {
         let count = DebtCase.digitCount(debt.accountNumber)
-        guard count > 0, count < 20 else { return nil }
+        if count >= 20 { return nil }
+        guard count > 0 || showErrors else { return nil }
         return "В расчётном счёте 20 цифр"
     }
 }
@@ -1111,8 +1143,8 @@ struct ReadyStep: View {
     }
 }
 
-private func phoneError(_ text: String) -> String? {
+private func phoneError(_ text: String, showEmpty: Bool = false) -> String? {
     let count = DebtCase.digitCount(text)
-    guard count > 0, count < 10 else { return nil }
+    guard count < 10, count > 0 || showEmpty else { return nil }
     return "Нужен номер хотя бы из 10 цифр"
 }

@@ -25,6 +25,13 @@ struct ContentView: View {
             debt.claimCreatedAt = Date()
         }
         guard let next = FunnelStep.following(step, debt: debt) else { return }
+        // Убираем из стека всё, что после текущего шага, и шаги, которых больше нет
+        // в последовательности, чтобы после смены ответа не оставались устаревшие экраны.
+        if let index = path.lastIndex(of: step) {
+            path.removeSubrange(path.index(after: index)..<path.endIndex)
+        }
+        let valid = Set(FunnelStep.sequence(for: debt) + [.ready])
+        path.removeAll { $0 != step && !valid.contains($0) }
         path.append(next)
     }
 
